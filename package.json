@@ -8,11 +8,16 @@
     "deploy": "wrangler deploy",
     "build": "wrangler build"
   },
-  "keywords": ["podcast", "rss", "filter", "cloudflare-workers"],
+  "keywords": [
+    "podcast",
+    "rss",
+    "filter",
+    "cloudflare-workers"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240620.0",
-    "wrangler": "^3.38.0"
+    "wrangler": "^4.100.0"
   }
 }

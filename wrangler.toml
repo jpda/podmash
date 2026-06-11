@@ -1,6 +1,5 @@
 name = "podmash"
 main = "src/index.ts"
-type = "service"
 compatibility_date = "2025-01-01"
 
 [env.production]

@@ -1,3 +1,21 @@
-# Podmash
+.wrangler/
+.dev.vars
+.env
+.env.*
+!.env.example
 
-Filter podcast RSS feeds to show only specific episodes in Apple Podcasts.
+node_modules/
+dist/
+build/
+coverage/
+
+.DS_Store
+Thumbs.db
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+.vscode/
+.idea/
