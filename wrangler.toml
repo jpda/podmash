@@ -20,3 +20,9 @@ invocation_logs = true
 enabled = true
 persist = true
 head_sampling_rate = 1
+
+[vars]
+SOURCE_RSS_URL = "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/b0033a5f-8d6c-46a0-90bd-afb90153a86d/b71608e3-ebff-402a-8ca1-afb90153a898/podcast.rss"
+CACHE_TTL = "3600"
+TITLE_PREFIX = "* "
+EPISODE_TITLE_FILTER = "FULL SHOW"

@@ -9,15 +9,11 @@
  */
 
 interface Env {
-  // Add environment variables here if needed
+  SOURCE_RSS_URL: string;
+  CACHE_TTL: string; // in seconds
+  TITLE_PREFIX: string; // Prefix to add to the channel title
+  EPISODE_TITLE_FILTER: string; // Filter for episode titles (e.g., "FULL SHOW")
 }
-
-// The source RSS feed URL to filter
-const SOURCE_RSS_URL =
-  "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/b0033a5f-8d6c-46a0-90bd-afb90153a86d/b71608e3-ebff-402a-8ca1-afb90153a898/podcast.rss";
-
-// Prefix to add to the channel title to distinguish from original feed
-const TITLE_PREFIX = "* ";
 
 export default {
   async fetch(
@@ -26,24 +22,45 @@ export default {
     ctx: ExecutionContext
   ): Promise<Response> {
     try {
+      // The source RSS feed URL to filter
+      const sourceUrl = env.SOURCE_RSS_URL;
+
+      // Prefix to add to the channel title to distinguish from original feed
+      const titlePrefix = env.TITLE_PREFIX || "* ";
+      // cache TTL
+      const cacheTtl = parseInt(env.CACHE_TTL || "3600", 10); // default to 1 hour
+      // title filter
+      const episodeTitleFilter = env.EPISODE_TITLE_FILTER || "FULL SHOW";
+
+      console.log(`Received request for filtered feed: ${request.url}`);
+      console.log(`Using source feed URL: ${sourceUrl}`);
+      console.log(`Using title prefix: ${titlePrefix}`);
+      console.log(`Using episode title filter: ${episodeTitleFilter}`);
+      console.log(`Using cache TTL: ${cacheTtl} seconds`);
       // Fetch the original RSS feed
-      const originalFeed = await fetch(SOURCE_RSS_URL);
+      console.debug(`Fetching source feed from: ${sourceUrl}`);
+      const originalFeed = await fetch(sourceUrl);
 
       if (!originalFeed.ok) {
+        console.error(`Failed to fetch source feed from: ${sourceUrl}; error: ${originalFeed.status} ${originalFeed.statusText}`);
         return new Response("Failed to fetch source feed", { status: 500 });
       }
 
       const xmlText = await originalFeed.text();
 
       // Parse the XML manually (simple regex approach)
-      const filtered = filterRSSFeed(xmlText);
+      const filtered = filterRSSFeed(xmlText, episodeTitleFilter, titlePrefix);
 
       // Extract Last-Modified from source or use newest FULL SHOW date
       let lastModified = originalFeed.headers.get("last-modified");
+
       if (!lastModified) {
         // Fallback: extract pubDate from newest FULL SHOW episode
+        console.debug(`Original feed missing Last-Modified header; extracting from newest FULL SHOW episode`);
         lastModified = extractNewestPubDate(filtered) || new Date().toUTCString();
       }
+
+      console.debug(`Last-Modified: ${lastModified}`);
 
       // Generate ETag based on filtered content hash
       const etag = await generateETag(filtered);
@@ -56,7 +73,7 @@ export default {
           headers: {
             ETag: etag,
             "Last-Modified": lastModified,
-            "Cache-Control": "max-age=3600",
+            "Cache-Control": `max-age=${cacheTtl}`,
           },
         });
       }
@@ -65,7 +82,7 @@ export default {
       return new Response(filtered, {
         headers: {
           "Content-Type": "application/rss+xml; charset=utf-8",
-          "Cache-Control": "max-age=3600",
+          "Cache-Control": `max-age=${cacheTtl}`,
           "Last-Modified": lastModified,
           ETag: etag,
         },
@@ -81,7 +98,7 @@ export default {
  * Filter RSS feed to include only episodes with "FULL SHOW" in the title
  * Also prepends a prefix to the channel title to distinguish it visually
  */
-function filterRSSFeed(xmlText: string): string {
+function filterRSSFeed(xmlText: string, titleFilter: string, titlePrefix: string): string {
   // Extract the channel opening tag and attributes
   const channelMatch = xmlText.match(/<channel[^>]*>/);
   if (!channelMatch) {
@@ -100,7 +117,7 @@ function filterRSSFeed(xmlText: string): string {
     const titleMatch = itemContent.match(/<title>([\s\S]*?)<\/title>/);
     if (titleMatch) {
       const title = titleMatch[1];
-      if (title.toUpperCase().includes("FULL SHOW")) {
+      if (title.toUpperCase().includes(titleFilter.toUpperCase())) {
         fullShowItems.push(itemMatch[0]); // Keep the entire <item>...</item>
       }
     }
@@ -115,7 +132,7 @@ function filterRSSFeed(xmlText: string): string {
   let channelHeader = headerMatch[1];
 
   // Prepend the title prefix to the channel title
-  channelHeader = prependChannelTitle(channelHeader, TITLE_PREFIX);
+  channelHeader = prependChannelTitle(channelHeader, titlePrefix);
 
   // Extract the channel closing tag
   const footerMatch = xmlText.match(/<\/channel>\s*<\/rss>\s*$/);
