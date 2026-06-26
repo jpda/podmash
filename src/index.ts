@@ -35,11 +35,36 @@ export default {
       // Parse the XML manually (simple regex approach)
       const filtered = filterRSSFeed(xmlText);
 
-      // Return the filtered RSS with correct content-type
+      // Extract Last-Modified from source or use newest FULL SHOW date
+      let lastModified = originalFeed.headers.get("last-modified");
+      if (!lastModified) {
+        // Fallback: extract pubDate from newest FULL SHOW episode
+        lastModified = extractNewestPubDate(filtered) || new Date().toUTCString();
+      }
+
+      // Generate ETag based on filtered content hash
+      const etag = await generateETag(filtered);
+
+      // Check if client has matching ETag (304 Not Modified)
+      const clientETag = request.headers.get("if-none-match");
+      if (clientETag === etag) {
+        return new Response(null, {
+          status: 304,
+          headers: {
+            ETag: etag,
+            "Last-Modified": lastModified,
+            "Cache-Control": "max-age=3600",
+          },
+        });
+      }
+
+      // Return the filtered RSS with correct content-type and caching headers
       return new Response(filtered, {
         headers: {
           "Content-Type": "application/rss+xml; charset=utf-8",
-          "Cache-Control": "max-age=3600", // Cache for 1 hour
+          "Cache-Control": "max-age=3600",
+          "Last-Modified": lastModified,
+          ETag: etag,
         },
       });
     } catch (error) {
@@ -94,4 +119,33 @@ function filterRSSFeed(xmlText: string): string {
     channelHeader + fullShowItems.join("\n") + "\n" + channelFooter;
 
   return filteredFeed;
+}
+
+/**
+ * Extract the pubDate of the newest (first) FULL SHOW episode
+ */
+function extractNewestPubDate(xmlText: string): string | null {
+  const pubDateMatch = xmlText.match(/<pubDate>([\s\S]*?)<\/pubDate>/);
+  if (pubDateMatch) {
+    return pubDateMatch[1];
+  }
+  return null;
+}
+
+/**
+ * Generate an ETag hash from the filtered feed content
+ * Uses simple string hashing for a quick fingerprint
+ */
+async function generateETag(content: string): Promise<string> {
+  // Use SubtleCrypto to hash the content
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+
+  // Convert to hex string
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  // Return as ETag (quoted per RFC 7232)
+  return `"${hashHex.substring(0, 16)}"`;
 }
