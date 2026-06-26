@@ -16,6 +16,9 @@ interface Env {
 const SOURCE_RSS_URL =
   "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/b0033a5f-8d6c-46a0-90bd-afb90153a86d/b71608e3-ebff-402a-8ca1-afb90153a898/podcast.rss";
 
+// Prefix to add to the channel title to distinguish from original feed
+const TITLE_PREFIX = "* ";
+
 export default {
   async fetch(
     request: Request,
@@ -76,6 +79,7 @@ export default {
 
 /**
  * Filter RSS feed to include only episodes with "FULL SHOW" in the title
+ * Also prepends a prefix to the channel title to distinguish it visually
  */
 function filterRSSFeed(xmlText: string): string {
   // Extract the channel opening tag and attributes
@@ -108,7 +112,10 @@ function filterRSSFeed(xmlText: string): string {
     return xmlText;
   }
 
-  const channelHeader = headerMatch[1];
+  let channelHeader = headerMatch[1];
+
+  // Prepend the title prefix to the channel title
+  channelHeader = prependChannelTitle(channelHeader, TITLE_PREFIX);
 
   // Extract the channel closing tag
   const footerMatch = xmlText.match(/<\/channel>\s*<\/rss>\s*$/);
@@ -119,6 +126,23 @@ function filterRSSFeed(xmlText: string): string {
     channelHeader + fullShowItems.join("\n") + "\n" + channelFooter;
 
   return filteredFeed;
+}
+
+/**
+ * Prepend a prefix to the channel title (the first <title> tag in the channel)
+ */
+function prependChannelTitle(channelHeader: string, prefix: string): string {
+  // Match the first <title>...</title> in the channel header
+  return channelHeader.replace(
+    /<title>([\s\S]*?)<\/title>/,
+    (match, title) => {
+      // Only prepend if it doesn't already have the prefix
+      if (!title.startsWith(prefix)) {
+        return `<title>${prefix}${title}</title>`;
+      }
+      return match;
+    }
+  );
 }
 
 /**

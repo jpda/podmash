@@ -1,6 +1,6 @@
 {
   "name": "podmash",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Filter podcast RSS feed to show only FULL SHOW episodes",
   "main": "src/index.ts",
   "scripts": {
@@ -18,6 +18,6 @@
   "license": "MIT",
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240620.0",
-    "wrangler": "^4.103.0"
+    "wrangler": "^4.105.0"
   }
 }
